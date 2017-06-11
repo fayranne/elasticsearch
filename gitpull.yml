@@ -1,0 +1,54 @@
+---
+- name: Install Elasticsearch to local machine
+  hosts: localhost
+  connection: local
+  remote_user: ec2-user
+  gather_facts: false
+  
+  tasks:
+   - name: Make etc/ansible dir
+     command: sudo mkdir /etc/ansible
+
+   - name: Make etc/ansible/playbook dir
+     command: sudo mkdir /etc/ansible/playbook
+
+   - name: Make etc/ansible/playbook/roles dir
+     command: sudo mkdir /etc/ansible/playbook/roles
+
+   - name: checkout git repository to /etc/ansible/playbook/roles
+     command: git clone https://github.com/elastic/ansible-elasticsearch.git
+
+- name: Install NGINX
+  hosts: localhost
+  connection: local
+  remote_user: root
+  become: true
+  gather_facts: false
+ 
+  tasks:
+    - name: NGINX | Installing NGINX repo rpm
+      yum:
+        name: http://nginx.org/packages/centos/7/noarch/RPMS/nginx-release-centos-7-0.el7.ngx.noarch.rpm
+ 
+    - name: NGINX | Installing NGINX
+      yum:
+        name: nginx
+        state: latest
+
+    - name: NGINX | Starting NGINX
+      service:
+        name: nginx
+        state: started
+
+    - name: Make etc/nginx/ssl
+      command: sudo mkdir /etc/nginx/ssl
+
+    - name: create self-signed SSL cert
+      command: openssl req -new -nodes -x509 -subj "/C=US/ST=Oregon/L=Portland/O=IT/CN=${ansible_fqdn}" -days 3650 -keyout /etc/nginx/ssl/server.key -out /etc/nginx/ssl/server.crt -extensions v3_ca creates=/etc/nginx/ssl/server.crt
+      notify: reload nginx
+
+  handlers:
+    - name: reload nginx
+      service:
+         name: nginx
+         state: reloaded
